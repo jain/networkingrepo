@@ -9,17 +9,69 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class NetworkServerSetup {
+	static class TimerTaskMe extends TimerTask{
+		Timer timer;
+		public TimerTaskMe(Timer timer){
+			super();
+			this.timer = timer;
+		}
+		@Override
+		public void run() {
+			// TODO Auto-generated method stub
+			System.out.println("#noob");
+			timer.cancel();
+		}
+	}
 	public static void main(String[] args) throws IOException {
-		FileInputStream fs = new FileInputStream("cracking_coding.pdf");
+		String filename = "cracking_coding.pdf";
+		//String filename = "noob.asd";
+		Path path = Paths.get(filename);
+		byte[] data = Files.readAllBytes(path);
+		NetworkClientSetup ncs = new NetworkClientSetup(null);
+		ncs.breakFile(data, 1000);
+		RecieverFileHandler rfh = new RecieverFileHandler();
+		Node node = ncs.sendNextPacket();
+		while(!ncs.ftpComplete()){
+			rfh.addData(node.getData(), node.getSeqNum(), node.getCheckSum());
+			rfh.addData(node.getData(), node.getSeqNum(), node.getCheckSum());
+			ncs.recievedAck(node.getSeqNum());
+			ncs.recievedAck(node.getSeqNum());
+			node = ncs.sendNextPacket();
+		}
+		//System.out.println(ncs.recievedAck(0));
+		System.out.println(ncs.sendNextPacket());
+		byte[] output = rfh.reOrder();
+		FileOutputStream fos = new FileOutputStream("copy" + filename);
+		fos.write(data);
+		fos.close();
+		/*Timer t = new Timer();
+		TimerTaskMe task = new TimerTaskMe(t);
+		t.schedule(task, 1000);
+		System.out.println("noob");
+		String name = "noob.asd";
+		Path path = Paths.get(name);
+		byte[] data = Files.readAllBytes(path);
+		FileOutputStream fos = new FileOutputStream("copy" + name);
+		fos.write(data);
+		fos.close();
+
+		 */
+		//t.cancel();
+		/*FileInputStream fs = new FileInputStream("cracking_coding.pdf");
 		FileOutputStream os = new FileOutputStream("copy.pdf");
 		int b;
 		while ((b = fs.read()) != -1) {
 		    os.write(b);
 		}
 		os.close();
-		fs.close();
+		fs.close();*/
 		/*File file = new File("cracking_coding.pdf");
 		FileReader reader = new FileReader(file);
 		char[] chars = new char[(int) file.length()];

@@ -10,27 +10,30 @@ import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.Scanner;
 
 public class NetworkClientSetup {
 	// multiply = 1
 	// add = 0
-	private ArrayList<Node> packets;
+	//private ArrayList<Node> packets;
 	private HashMap<Integer, Node> packetMap;
-	public void breakFile(String input, int size) throws IOException{
-		byte[] data = input.getBytes();
+	private LinkedList<Integer> queue;
+	public void breakFile(byte[] data, int size) throws IOException{
 		/*FileOutputStream out = new FileOutputStream("copy.pdf");
 		out.write(data);
 		out.close();*/
 		int count = 0;
 		int seqNum = 1;
-		while (count<input.length()){
+		while (count<data.length){
 			byte temp[] = new byte[size];
-			for(int i = 0; i<size&&i+count<input.length(); i++){
+			for(int i = 0; i<size&&i+count<data.length; i++){
 				temp[i] = data[i+count];
 			}
 			Node toSend = new Node(temp, seqNum);
-			packets.add(toSend);
+			//packets.add(toSend);
+			queue.addLast(seqNum);
 			packetMap.put(seqNum, toSend);
 			seqNum++;
 			count+=size;
@@ -43,16 +46,26 @@ public class NetworkClientSetup {
 		writer.write(s);
 		writer.close();*/
 	}
+	public boolean ftpComplete(){
+		return (packetMap.isEmpty());
+	}
 	public void recievedAck(int seqNum){
-		Node toRemove = packetMap.remove(seqNum);
-		packets.remove(toRemove);
+		if(packetMap.containsKey(seqNum)){
+			packetMap.remove(seqNum);
+			//return (packetMap.isEmpty());
+			//	return true;
+		}
+		//return false;
 	}
-	public Node sendNextPacket(int index){
-		return packets.get(index);
+	public Node sendNextPacket(){
+		if(!queue.isEmpty()) return packetMap.get(queue.removeFirst());//packets.get(index); 
+		return null;
 	}
+
 	public NetworkClientSetup(String[] args) {
-		packets = new ArrayList<Node>();
+		//packets = new ArrayList<Node>();
 		packetMap = new HashMap<Integer, Node>();
+		queue = new LinkedList<Integer>();
 		/*int command = -1, input1 = 0, input2 = 0, port = 0;
 		String ip = "";
 		try {
@@ -188,43 +201,5 @@ public class NetworkClientSetup {
 			return false;
 		}
 		return true;
-	}
-	private class Node{
-		private byte[] data;
-		private int seqNum;
-		private short checkSum;
-		public Node(byte[] data, int seqNum){
-			this.setData(data);
-			this.setSeqNum(seqNum);
-			checkSum = 0;
-			byte A = 0;
-			byte B = 0;
-			for(int i = 0; i<data.length; i++){
-				A+= data[i];
-				B+= A;
-			}
-			checkSum = (short)(A<<8);
-			checkSum+= B;
-		}
-		public int getSeqNum() {
-			return seqNum;
-		}
-		public void setSeqNum(int seqNum) {
-			this.seqNum = seqNum;
-		}
-		public byte[] getData() {
-			return data;
-		}
-		public void setData(byte[] data) {
-			this.data = data;
-		}
-		public short getCheckSum() {
-			return checkSum;
-		}
-		@Override
-		public String toString(){
-			//return (new String(data) + "seq Num:" + seqNum + "checkSum:" + checkSum);
-			return (new String(data));
-		}
 	}
 }

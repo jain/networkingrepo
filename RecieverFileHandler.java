@@ -3,23 +3,35 @@ import java.util.Map.Entry;
 
 
 public class RecieverFileHandler {
-	private HashMap<Integer, String> packets;
+	private HashMap<Integer, byte[]> packets;
 	public RecieverFileHandler(){
-		packets = new HashMap<Integer, String>();
+		packets = new HashMap<Integer, byte[]>();
 	}
-	public boolean addPacket(String data, int seqNum){
+	public boolean addData(byte[] data, int seqNum, short checkSum){
+		if(!checkData(data, checkSum)) return false;
 		if(packets.containsKey(seqNum)) return false;
 		packets.put(seqNum, data);
 		return true;
 	}
-	public String reOrder(){
-		String output = "";
-		String arr[] = new String[packets.size()];
-		for(Entry<Integer, String> entry : packets.entrySet()){
+	/*public boolean addPacket(byte data[], int seqNum){
+		if(packets.containsKey(seqNum)) return false;
+		packets.put(seqNum, data);
+		return true;
+	}*/
+	public byte[] reOrder(){
+		byte[] arr[] = new byte[packets.size()][];
+		int len = 0;
+		for(Entry<Integer, byte[]> entry : packets.entrySet()){
 			arr[entry.getKey()-1] = entry.getValue();
+			len+=entry.getValue().length;
 		}
-		for(String data: arr){
-			output+=data;
+		byte[] output = new byte[len];
+		int counter = 0;
+		for(byte[] data: arr){
+			for(byte bit : data){
+				output[counter] = bit;
+				counter++;
+			}
 		}
 		return output;
 	}
@@ -34,10 +46,5 @@ public class RecieverFileHandler {
 		checkSum = (short)(A<<8);
 		checkSum+= B;
 		return (checkSum == sum);
-	}
-	public boolean addData(String data, int seqNum){
-		if(packets.containsKey(seqNum)) return false;
-		packets.put(seqNum, data);
-		return true;
 	}
 }
