@@ -60,7 +60,7 @@ public class NetworkServerServer {
 			receiveData[0] =checkSumbytes[0];
 			receiveData[1] =checkSumbytes[1];
 			DatagramPacket sendPacket =
-					new DatagramPacket(receiveData,receiveData.length, IPAddress, port);
+					new DatagramPacket(receiveData,receiveData.length, IPAddress, 8000);
 			serverSocket.send(sendPacket);
 
 		} while(true);
