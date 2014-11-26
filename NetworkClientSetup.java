@@ -51,6 +51,7 @@ public class NetworkClientSetup {
 		return (packetMap.isEmpty());
 	}
 	public void recievedAck(int seqNum){
+		queue.removeFirst(); // tmp
 		if(packetMap.containsKey(seqNum)){
 			packetMap.remove(seqNum);
 			//return (packetMap.isEmpty());
@@ -59,7 +60,7 @@ public class NetworkClientSetup {
 		//return false;
 	}
 	public Node sendNextPacket(){
-		if(!queue.isEmpty()) return packetMap.get(queue.removeFirst());//packets.get(index); 
+		if(!queue.isEmpty()) return packetMap.get(queue.peek());//packets.get(index); 
 		return null;
 	}
 
@@ -170,37 +171,5 @@ public class NetworkClientSetup {
 		} catch (Exception e) {
 			System.out.println("Invalid command");
 		}*/
-	}
-
-	private boolean check(String ip) {
-		// TODO Auto-generated method stub
-		try {
-			String p1 = ip.split("\\.")[0];
-			String p2 = ip.split("\\.")[1];
-			String p3 = ip.split("\\.")[2];
-			String p4 = ip.split("\\.")[3];
-			if (!(p1 + "." + p2 + "." + p3 + "." + p4).equals(ip)) {
-				return false;
-			}
-			int ip1 = Integer.parseInt(p1);
-			int ip2 = Integer.parseInt(p2);
-			int ip3 = Integer.parseInt(p3);
-			int ip4 = Integer.parseInt(p4);
-			if (!(ip1 >= 0 && ip1 <= 255)) {
-				return false;
-			}
-			if (!(ip2 >= 0 && ip2 <= 255)) {
-				return false;
-			}
-			if (!(ip3 >= 0 && ip3 <= 255)) {
-				return false;
-			}
-			if (!(ip4 >= 0 && ip4 <= 255)) {
-				return false;
-			}
-		} catch (Exception e) {
-			return false;
-		}
-		return true;
 	}
 }

@@ -61,6 +61,7 @@ public class NetworkServerSetup {
 			map.remove(node.getSeqNum());
 			current = 0;
 			max--;
+			//ncs.addToEnd(node);
 			if(map.size()==0){
 				max = 1;
 				clientSocket.close();
@@ -213,6 +214,7 @@ public class NetworkServerSetup {
 		InetAddress IPAddress = InetAddress.getByName("localhost");
 		DatagramSocket clientSocket = new DatagramSocket(4342);
 		do{
+			System.out.println(node.getSeqNum());
 			byte[] toSend = node.getPacket();
 			DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, s);
 			Timer time = new Timer();
