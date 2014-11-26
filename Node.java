@@ -6,7 +6,7 @@ public class Node {
 	public Node(byte[] data, int seqNum){
 		this.setData(data);
 		this.setSeqNum(seqNum);
-		checkSum = 0;
+		/*checkSum = 0;
 		byte A = 0;
 		byte B = 0;
 		for(int i = 0; i<data.length; i++){
@@ -15,7 +15,7 @@ public class Node {
 		}
 		checkSum = A;
 		checkSum = (short) (checkSum<<8);
-		checkSum+= B;
+		checkSum+= B;*/
 	}
 	public int getSeqNum() {
 		return seqNum;

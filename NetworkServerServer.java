@@ -13,15 +13,18 @@ public class NetworkServerServer {
 	 */
 	public static void main(String[] args) throws IOException {
 		// TODO Auto-generated method stub
-		RecieverFileHandler rfh = new RecieverFileHandler();
+		RecieverFileHandler rfh = null;
 		DatagramSocket serverSocket = new DatagramSocket(4343);
 		byte[] receiveData = new byte[1024];
-		byte[] sendData = new byte[1024];
-		while(true)
-		{
+		do{
 			DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+			serverSocket.receive(receivePacket);
 			//System.out.println(receiveData);
+
 			ByteBuffer gotten = ByteBuffer.wrap(receiveData);
+			if(!checkData(receiveData, gotten.getShort(0), gotten.getShort(14)+16)){
+				continue;
+			}
 			System.out.println("checkSum:" + gotten.getShort(0));
 			System.out.println("source:" + gotten.getShort(2));
 			System.out.println("dest:" + gotten.getShort(4));
@@ -33,20 +36,40 @@ public class NetworkServerServer {
 			short dataLength = gotten.getShort(14);
 			System.out.println("len:" + dataLength);
 			if(dataLength>0){
-				byte[] name = new byte[dataLength];
+				byte[] data = new byte[dataLength];
 				for(int i = 16; i<(16+dataLength); i++){
-					name[i-16] = receiveData[i];
+					data[i-16] = receiveData[i];
 				}
-				System.out.println("name:" + new String(name));
+				if(rfh==null){
+					String reception = new String(data);
+					System.out.println(reception);
+					String[] fileData = reception.split("!");
+					rfh = new RecieverFileHandler(fileData[1], Integer.parseInt(fileData[0]));
+				}else{
+					rfh.addData(data, gotten.getInt(6));
+				}
+				//System.out.println("name:" + new String(name));
 			}
-			serverSocket.receive(receivePacket);
 			InetAddress IPAddress = receivePacket.getAddress();
 			int port = receivePacket.getPort();
+			receiveData[12] = 1;
 			DatagramPacket sendPacket =
-					new DatagramPacket(sendData, sendData.length, IPAddress, port);
+					new DatagramPacket(receiveData,receiveData.length, IPAddress, port);
 			serverSocket.send(sendPacket);
 
-		}
+		} while(true);
 	}
-
+	public static boolean checkData(byte[] data, short sum, int end){
+		short checkSum = 0;
+		byte A = 0;
+		byte B = 0;
+		for(int i = 2; i<end; i++){
+			A+= data[i];
+			B+= A;
+		}
+		checkSum = A;
+		checkSum = (short) (checkSum<<8);
+		checkSum+= B;
+		return (checkSum == sum);
+	}
 }

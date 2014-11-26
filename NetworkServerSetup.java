@@ -48,18 +48,18 @@ public class NetworkServerSetup {
 		NetworkClientSetup ncs = new NetworkClientSetup(null);
 		ncs.breakFile(data, 1000);
 		Node node = ncs.sendNextPacket();
-		/*while(!ncs.ftpComplete()){
-			/*rfh.addData(node.getData(), node.getSeqNum(), node.getCheckSum());
+		while(!ncs.ftpComplete()){
+			rfh.addData(node.getData(), node.getSeqNum(), node.getCheckSum());
 			rfh.addData(node.getData(), node.getSeqNum(), node.getCheckSum());
 			ncs.recievedAck(node.getSeqNum());
 			ncs.recievedAck(node.getSeqNum());
 			node = ncs.sendNextPacket();
-		}*/
-		//System.out.println(ncs.recievedAck(0));
-		/*System.out.println(ncs.sendNextPacket());
+		}
+		//System.out.println(""+ncs.recievedAck(0));
+		System.out.println(ncs.sendNextPacket());
 		byte[] output = rfh.reOrder();
 		FileOutputStream fos = new FileOutputStream("copy" + filename);
-		fos.write(data);
+		fos.write(output);
 		fos.close();*/
 	}
 	/*Timer t = new Timer();
@@ -139,18 +139,50 @@ public class NetworkServerSetup {
 	// 0 is recieve
 	// 1 is upload
 	public static void contactServer() throws IOException {
+		int s = 4343;
+		// TODO Auto-generated method stub
+		//String filename = "copy";
+		String filename = "cracking_coding.pdf";
+		//String filename = "noob.asd";
+		Path path = Paths.get(filename);
+		byte[] fileData = Files.readAllBytes(path);
+		NetworkClientSetup ncs = new NetworkClientSetup(null);
+		int size = ncs.breakFile(fileData, 1000);
+		String input = size + "!copy"+ filename;// fix delimiter
+		//input = checkSum(input) + input;
+		//byte[] toSend = packet.array();
+		byte[] toSend = createPacket(input.getBytes(), 0);
+		DatagramSocket clientSocket = new DatagramSocket();
+		InetAddress IPAddress = InetAddress.getByName("localhost");
+		byte[] receiveData = new byte[1024];
+		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, s);
+		clientSocket.send(sendPacket);
+		DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+		clientSocket.receive(receivePacket);
+		Node node = ncs.sendNextPacket();
+		do{
+			toSend = createPacket(node.getData(), node.getSeqNum());
+			sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, s);
+			clientSocket.send(sendPacket);
+			receivePacket = new DatagramPacket(receiveData, receiveData.length);
+			clientSocket.receive(receivePacket);
+			ncs.recievedAck(node.getSeqNum());
+			node = ncs.sendNextPacket();
+		}while(!ncs.ftpComplete());
+		clientSocket.close();
+	}
+
+
+	private static byte[] createPacket(byte[] input, int seqNo) {
 		// TODO Auto-generated method stub
 		short source = 4343;
 		short dest = 3636;
-		int seqNum = 0;
+		int seqNum = seqNo;
 		byte synchronization = 1;
 		byte finishConnection = 0;
 		byte ack = 0;
 		byte mode = 1;
-		String filename = "copy";
-		String input = filename;
-		short length = (short)input.getBytes().length;
-		//input = checkSum(input) + input;
+		short length = (short)input.length;
 		ByteBuffer packet = ByteBuffer.allocate(14+length);
 		packet.putShort(source);
 		packet.putShort(dest);
@@ -160,25 +192,14 @@ public class NetworkServerSetup {
 		packet.put(ack);
 		packet.put(mode);
 		packet.putShort(length);
-		packet.put(input.getBytes());
+		packet.put(input);
 		byte[] data = packet.array();
 		short checkSum = checkSum(data);
 		packet = ByteBuffer.allocate(16+length);
 		packet.putShort(checkSum);
 		packet.put(data);
-		byte[] toSend = packet.array();
-		DatagramSocket clientSocket = new DatagramSocket();
-		InetAddress IPAddress = InetAddress.getByName("localhost");
-		byte[] receiveData = new byte[1024];
-		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, source);
-		clientSocket.send(sendPacket);
-		DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-		clientSocket.receive(receivePacket);
-		String modifiedSentence = new String(receivePacket.getData());
-		System.out.println("FROM SERVER:" + modifiedSentence);
-		clientSocket.close();
+		return packet.array();
 	}
-
 
 	private static short checkSum(byte[] data) {
 		short checkSum = 0;

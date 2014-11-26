@@ -1,17 +1,45 @@
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
 
 public class RecieverFileHandler {
 	private HashMap<Integer, byte[]> packets;
+	private String filename;
+	private int numOfPackets;
 	public RecieverFileHandler(){
 		packets = new HashMap<Integer, byte[]>();
 	}
-	public boolean addData(byte[] data, int seqNum, short checkSum){
-		if(!checkData(data, checkSum)) return false;
+	public RecieverFileHandler(String name, int numOfPackets){
+		packets = new HashMap<Integer, byte[]>();
+		this.numOfPackets=numOfPackets;
+		filename = name;
+	}
+	public boolean addData(byte[] data, int seqNum){
 		if(packets.containsKey(seqNum)) return false;
 		packets.put(seqNum, data);
+		numOfPackets--;
+		if(numOfPackets==0){
+			try {
+				createFile();
+			} catch (FileNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
 		return true;
+	}
+	private void createFile() throws IOException {
+		// TODO Auto-generated method stub
+		byte[] output = reOrder();
+		FileOutputStream fos = new FileOutputStream("copy" + filename);
+		fos.write(output);
+		fos.close();
 	}
 	/*public boolean addPacket(byte data[], int seqNum){
 		if(packets.containsKey(seqNum)) return false;
@@ -34,17 +62,5 @@ public class RecieverFileHandler {
 			}
 		}
 		return output;
-	}
-	public boolean checkData(byte[] data, short sum){
-		short checkSum = 0;
-		byte A = 0;
-		byte B = 0;
-		for(int i = 0; i<data.length; i++){
-			A+= data[i];
-			B+= A;
-		}
-		checkSum = (short)(A<<8);
-		checkSum+= B;
-		return (checkSum == sum);
 	}
 }

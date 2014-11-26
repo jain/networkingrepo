@@ -20,7 +20,7 @@ public class NetworkClientSetup {
 	//private ArrayList<Node> packets;
 	private HashMap<Integer, Node> packetMap;
 	private LinkedList<Integer> queue;
-	public void breakFile(byte[] data, int size) throws IOException{
+	public int breakFile(byte[] data, int size) throws IOException{
 		/*FileOutputStream out = new FileOutputStream("copy.pdf");
 		out.write(data);
 		out.close();*/
@@ -45,6 +45,7 @@ public class NetworkClientSetup {
 		}
 		writer.write(s);
 		writer.close();*/
+		return (seqNum-1);
 	}
 	public boolean ftpComplete(){
 		return (packetMap.isEmpty());
