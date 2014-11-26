@@ -53,6 +53,12 @@ public class NetworkServerServer {
 			InetAddress IPAddress = receivePacket.getAddress();
 			int port = receivePacket.getPort();
 			receiveData[12] = 1;
+			short checkSum = checkSum(receiveData);
+			ByteBuffer cksm = ByteBuffer.allocate(2);
+			cksm.putShort(checkSum);
+			byte[] checkSumbytes = cksm.array();
+			receiveData[0] =checkSumbytes[0];
+			receiveData[1] =checkSumbytes[1];
 			DatagramPacket sendPacket =
 					new DatagramPacket(receiveData,receiveData.length, IPAddress, port);
 			serverSocket.send(sendPacket);
@@ -71,5 +77,18 @@ public class NetworkServerServer {
 		checkSum = (short) (checkSum<<8);
 		checkSum+= B;
 		return (checkSum == sum);
+	}
+	public static short checkSum(byte[] data){
+		short checkSum = 0;
+		byte A = 0;
+		byte B = 0;
+		for(int i = 2; i<data.length; i++){
+			A+= data[i];
+			B+= A;
+		}
+		checkSum = A;
+		checkSum = (short) (checkSum<<8);
+		checkSum+= B;
+		return (checkSum);
 	}
 }

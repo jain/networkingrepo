@@ -9,30 +9,96 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.ConcurrentHashMap;
+
 
 public class NetworkServerSetup {
+	private static int current;
+	private static int max;
+	private static ConcurrentHashMap<Integer, Timer> map;
+	private static NetworkClientSetup ncs;
+	public static void main(String[] args) throws IOException {
+		map = new ConcurrentHashMap<Integer, Timer>();
+		max = 1;
+		current = 0;
+		try{
+			contactServer();
+		} catch (IOException e){
+
+		}
+	}
 	static class TimerTaskMe extends TimerTask{
-		Timer timer;
-		public TimerTaskMe(Timer timer){
+		private Timer timer;
+		private Node node;
+		private DatagramSocket clientSocket;
+		public TimerTaskMe(Timer timer, Node node, DatagramSocket clientSocket){
 			super();
 			this.timer = timer;
+			this.node = node;
+			this.clientSocket = clientSocket;
 		}
 		@Override
 		public void run() {
 			// TODO Auto-generated method stub
-			System.out.println("#noob");
+			//System.out.println("#noob");
+			//timer.cancel();
+			//System.out.println("yolo");
+			//timer.
 			timer.cancel();
+			/*timer = new Timer();
+			timer.schedule(this, 1000);*/
+			// add node to end of queue
+			// if being transferred right now == 0 resend
+			map.remove(node.getSeqNum());
+			current = 0;
+			max--;
+			if(map.size()==0){
+				max = 1;
+				clientSocket.close();
+				try {
+					restart();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
 		}
 	}
-	public static void main(String[] args) throws IOException {
-		/*short source = 4343;
+	static class TimerTaskMe2 extends TimerTask{
+		private Timer timer;
+		private DatagramSocket clientSocket;
+		public TimerTaskMe2(Timer timer, DatagramSocket clientSocket){
+			super();
+			this.timer = timer;
+			this.clientSocket = clientSocket;
+		}
+		@Override
+		public void run() {
+			// TODO Auto-generated method stub
+			//System.out.println("#noob");
+			//timer.cancel();
+			//System.out.println("yolo");
+			//timer.
+			timer.cancel();
+			clientSocket.close();
+			try {
+				contactServer();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+	/*short source = 4343;
 		byte[] bytes = ByteBuffer.allocate(2).putShort(source).array();
 		for (byte b : bytes) {
 			System.out.format("0x%x ", b);
@@ -40,8 +106,8 @@ public class NetworkServerSetup {
 		ByteBuffer by = ByteBuffer.wrap(bytes);
 		ShortBuffer a = by.asShortBuffer();
 		System.out.println(a.get());*/
-		contactServer();
-		/*String filename = "cracking_coding.pdf";
+	//contactServer();
+	/*String filename = "cracking_coding.pdf";
 		//String filename = "noob.asd";
 		Path path = Paths.get(filename);
 		byte[] data = Files.readAllBytes(path);
@@ -61,12 +127,14 @@ public class NetworkServerSetup {
 		FileOutputStream fos = new FileOutputStream("copy" + filename);
 		fos.write(output);
 		fos.close();*/
-	}
-	/*Timer t = new Timer();
-		TimerTaskMe task = new TimerTaskMe(t);
-		t.schedule(task, 1000);
-		System.out.println("noob");
-		String name = "noob.asd";
+	//}
+	/*Timer tim = new Timer();
+		TimerTaskMe task = new TimerTaskMe(tim, null);
+		tim.scheduleAtFixedRate(task, 1000, 1000);*/
+	//}
+	//t.schedule(task, 1000);
+	//System.out.println("noob");
+	/*String name = "noob.asd";
 		Path path = Paths.get(name);
 		byte[] data = Files.readAllBytes(path);
 		FileOutputStream fos = new FileOutputStream("copy" + name);
@@ -138,6 +206,44 @@ public class NetworkServerSetup {
 
 	// 0 is recieve
 	// 1 is upload
+	private static void restart() throws IOException{
+		// TODO Auto-generated method stub
+		int s = 4343;
+		Node node = ncs.sendNextPacket();
+		InetAddress IPAddress = InetAddress.getByName("localhost");
+		DatagramSocket clientSocket = new DatagramSocket(4342);
+		do{
+			byte[] toSend = node.getPacket();
+			DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, s);
+			Timer time = new Timer();
+			TimerTaskMe tsk = new TimerTaskMe(time, node, clientSocket);
+			time.schedule(tsk, 2000);
+			map.put(node.getSeqNum(), time);
+			clientSocket.send(sendPacket);
+			byte[] receiveData = new byte[1024];
+			here:{
+				DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+				clientSocket.receive(receivePacket);
+				ByteBuffer gotten = ByteBuffer.wrap(receivePacket.getData());
+				if(!checkData(receiveData, gotten.getShort(0))){
+					break here;
+				}
+				if (receivePacket.getData()[12]==1){
+					ncs.recievedAck(gotten.getInt(6));
+					//map.get(gotten.getInt(6)).cancel(); /
+					Timer tmp = map.remove(gotten.getInt(6)); // can be error if not in map...
+					current++;
+					if(current==max){
+						max++;
+						current = 0;
+					}
+					tmp.cancel();
+					node = ncs.sendNextPacket();
+				}
+			}
+		}while(!ncs.ftpComplete());
+		clientSocket.close();
+	}
 	public static void contactServer() throws IOException {
 		int s = 4343;
 		// TODO Auto-generated method stub
@@ -146,73 +252,66 @@ public class NetworkServerSetup {
 		//String filename = "noob.asd";
 		Path path = Paths.get(filename);
 		byte[] fileData = Files.readAllBytes(path);
-		NetworkClientSetup ncs = new NetworkClientSetup(null);
+		ncs = new NetworkClientSetup(null);
 		int size = ncs.breakFile(fileData, 1000);
 		String input = size + "!copy"+ filename;// fix delimiter
 		//input = checkSum(input) + input;
 		//byte[] toSend = packet.array();
-		byte[] toSend = createPacket(input.getBytes(), 0);
-		DatagramSocket clientSocket = new DatagramSocket();
+		//byte[] toSend = createPacket(input.getBytes(), 0);
+		Node first = new Node(input.getBytes(), 0);
+		byte[] toSend = first.getPacket();
+		DatagramSocket clientSocket = new DatagramSocket(4342);
+		Timer t = new Timer();
+		TimerTaskMe2 task = new TimerTaskMe2(t, clientSocket);
+		t.schedule(task, 1000);
 		InetAddress IPAddress = InetAddress.getByName("localhost");
 		byte[] receiveData = new byte[1024];
 		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, s);
 		clientSocket.send(sendPacket);
 		DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
 		clientSocket.receive(receivePacket);
-		Node node = ncs.sendNextPacket();
-		do{
-			toSend = createPacket(node.getData(), node.getSeqNum());
-			sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, s);
-			clientSocket.send(sendPacket);
-			receivePacket = new DatagramPacket(receiveData, receiveData.length);
-			clientSocket.receive(receivePacket);
-			ncs.recievedAck(node.getSeqNum());
-			node = ncs.sendNextPacket();
-		}while(!ncs.ftpComplete());
+		t.cancel();
+		/*Node node = ncs.sendNextPacket();
+			do{
+
+				//toSend = createPacket(node.getData(), node.getSeqNum());
+				toSend = node.getPacket();
+				sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, s);
+				Timer time = new Timer();
+				TimerTaskMe tsk = new TimerTaskMe(time, node, clientSocket);
+				time.schedule(tsk, 2000);
+				map.put(node.getSeqNum(), time);
+				clientSocket.send(sendPacket);
+				here:{
+					receivePacket = new DatagramPacket(receiveData, receiveData.length);
+					clientSocket.receive(receivePacket);
+					ByteBuffer gotten = ByteBuffer.wrap(receivePacket.getData());
+					if(!checkData(receiveData, gotten.getShort(0))){
+						break here;
+					}
+					if (receivePacket.getData()[12]==1){
+						ncs.recievedAck(gotten.getInt(6));
+						//map.get(gotten.getInt(6)).cancel(); /
+						Timer tmp = map.remove(gotten.getInt(6)); // can be error if not in map...
+						tmp.cancel();
+						node = ncs.sendNextPacket();
+					}
+				}
+			}while(!ncs.ftpComplete());*/
 		clientSocket.close();
+		restart();
 	}
-
-
-	private static byte[] createPacket(byte[] input, int seqNo) {
-		// TODO Auto-generated method stub
-		short source = 4343;
-		short dest = 3636;
-		int seqNum = seqNo;
-		byte synchronization = 1;
-		byte finishConnection = 0;
-		byte ack = 0;
-		byte mode = 1;
-		short length = (short)input.length;
-		ByteBuffer packet = ByteBuffer.allocate(14+length);
-		packet.putShort(source);
-		packet.putShort(dest);
-		packet.putInt(seqNum);
-		packet.put(synchronization);
-		packet.put(finishConnection);
-		packet.put(ack);
-		packet.put(mode);
-		packet.putShort(length);
-		packet.put(input);
-		byte[] data = packet.array();
-		short checkSum = checkSum(data);
-		packet = ByteBuffer.allocate(16+length);
-		packet.putShort(checkSum);
-		packet.put(data);
-		return packet.array();
-	}
-
-	private static short checkSum(byte[] data) {
+	public static boolean checkData(byte[] data, short sum){
 		short checkSum = 0;
 		byte A = 0;
 		byte B = 0;
-		for(int i = 0; i<data.length; i++){
+		for(int i = 2; i<data.length; i++){
 			A+= data[i];
 			B+= A;
 		}
 		checkSum = A;
 		checkSum = (short) (checkSum<<8);
 		checkSum+= B;
-		return checkSum;
+		return (checkSum==sum);
 	}
-
 }
