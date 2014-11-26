@@ -13,7 +13,8 @@ public class Node {
 			A+= data[i];
 			B+= A;
 		}
-		checkSum = (short)(A<<8);
+		checkSum = A;
+		checkSum = (short) (checkSum<<8);
 		checkSum+= B;
 	}
 	public int getSeqNum() {
