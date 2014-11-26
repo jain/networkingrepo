@@ -1,22 +1,11 @@
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketException;
-import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.nio.ShortBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
@@ -74,16 +63,10 @@ public class NetworkServerSetup {
 		}
 		@Override
 		public void run() {
-			// TODO Auto-generated method stub
-			//System.out.println("#noob");
-			//timer.cancel();
-			//System.out.println("yolo");
-			//timer.
 			timer.cancel();
 			try {
 				contactServer();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
@@ -92,18 +75,12 @@ public class NetworkServerSetup {
 
 	public static void contactServer() throws IOException {
 		int s = 8000;
-		// TODO Auto-generated method stub
-		//String filename = "copy";
 		String filename = "cracking_coding.pdf";
-		//String filename = "noob.asd";
 		Path path = Paths.get(filename);
 		byte[] fileData = Files.readAllBytes(path);
 		ncs = new NetworkClientSetup(null);
 		int size = ncs.breakFile(fileData, 1000);
 		String input = size + "!copy"+ filename;// fix delimiter
-		//input = checkSum(input) + input;
-		//byte[] toSend = packet.array();
-		//byte[] toSend = createPacket(input.getBytes(), 0);
 		Node first = new Node(input.getBytes(), 0);
 		byte[] toSend = first.getPacket();
 		clientSocket = new DatagramSocket(4000);
@@ -159,7 +136,6 @@ public class NetworkServerSetup {
 		int s = 8000;
 		InetAddress IPAddress = InetAddress.getByName("localhost");
 		Node node = ncs.sendNextPacket();
-		//System.out.println(node.getSeqNum());	
 		if(node==null) return;
 		byte[] toSend = node.getPacket();
 		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, s);
