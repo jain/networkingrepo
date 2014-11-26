@@ -14,7 +14,7 @@ public class NetworkServerServer {
 	public static void main(String[] args) throws IOException {
 		// TODO Auto-generated method stub
 		RecieverFileHandler rfh = null;
-		DatagramSocket serverSocket = new DatagramSocket(4343);
+		DatagramSocket serverSocket = new DatagramSocket(4001);
 		byte[] receiveData = new byte[1024];
 		do{
 			DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
@@ -40,7 +40,7 @@ public class NetworkServerServer {
 				for(int i = 16; i<(16+dataLength); i++){
 					data[i-16] = receiveData[i];
 				}
-				if(rfh==null){
+				if(rfh==null&&gotten.getInt(6)==0){
 					String reception = new String(data);
 					System.out.println(reception);
 					String[] fileData = reception.split("!");

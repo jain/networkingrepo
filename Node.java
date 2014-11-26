@@ -27,8 +27,8 @@ public class Node {
 	}
 	private static byte[] createPacket(byte[] input, int seqNo) {
 		// TODO Auto-generated method stub
-		short source = 4343;
-		short dest = 3636;
+		short source = 4001;
+		short dest = 4000;
 		int seqNum = seqNo;
 		byte synchronization = 1;
 		byte finishConnection = 0;

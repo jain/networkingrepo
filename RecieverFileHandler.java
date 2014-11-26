@@ -21,6 +21,7 @@ public class RecieverFileHandler {
 		if(packets.containsKey(seqNum)) return false;
 		packets.put(seqNum, data);
 		numOfPackets--;
+		System.out.println("remaining" +  numOfPackets);
 		if(numOfPackets==0){
 			try {
 				createFile();

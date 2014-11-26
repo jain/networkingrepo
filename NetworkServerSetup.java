@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,7 +35,7 @@ public class NetworkServerSetup {
 		try{
 			contactServer();
 		} catch (IOException e){
-
+			e.printStackTrace();
 		}
 	}
 	static class TimerTaskMe extends TimerTask{
@@ -52,14 +53,27 @@ public class NetworkServerSetup {
 			//timer.cancel();
 			//System.out.println("yolo");
 			//timer.
-			timer.cancel();
 			/*timer = new Timer();
 			timer.schedule(this, 1000);*/
 			// add node to end of queue
 			// if being transferred right now == 0 resend
+			/*if(ncs.containsSeqNum(node.getSeqNum())){
+				if(map.size()==0){
+					try{
+						sendMore();
+					} catch (IOException e){
+
+					}
+				}
+				return;
+			}*/
+
+			timer.cancel();
 			map.remove(node.getSeqNum());
+			ncs.removeCurrent(node.getSeqNum());
 			current = 0;
 			max--;
+			ncs.addPacket(node.getSeqNum());
 			//ncs.addToEnd(node);
 			if(map.size()==0){
 				max = 1;
@@ -77,8 +91,13 @@ public class NetworkServerSetup {
 			}
 		}
 		public void sendMore() throws IOException{
-			int s = 8000;
+			//System.out.println(node.getSeqNum());
+			//System.out.println(ncs.ftpComplete());
+			/*int s = 8000;
 			Node node = ncs.sendNextPacket();
+			System.out.println("prob is here");
+			if(node==null) return;
+			if(ncs.containsCurrent(node.getSeqNum())) return;
 			InetAddress IPAddress = InetAddress.getByName("localhost");
 			byte[] toSend = node.getPacket();
 			DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, s);
@@ -86,7 +105,8 @@ public class NetworkServerSetup {
 			TimerTaskMe tsk = new TimerTaskMe(time, node);
 			time.schedule(tsk, 2000);
 			map.put(node.getSeqNum(), time);
-			clientSocket.send(sendPacket);
+			clientSocket.send(sendPacket);*/
+			sendNextPacket();
 		}
 	}
 	static class TimerTaskMe2 extends TimerTask{
@@ -112,45 +132,7 @@ public class NetworkServerSetup {
 		}
 	}
 
-	private static void restart() throws IOException{
-		// TODO Auto-generated method stub
-		int s = 8000;
-		Node node = ncs.sendNextPacket();
-		InetAddress IPAddress = InetAddress.getByName("localhost");
-		//clientSocket = new DatagramSocket(4342);
-		do{
-			System.out.println(node.getSeqNum());
-			byte[] toSend = node.getPacket();
-			DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, s);
-			Timer time = new Timer();
-			TimerTaskMe tsk = new TimerTaskMe(time, node);
-			time.schedule(tsk, 2000);
-			map.put(node.getSeqNum(), time);
-			clientSocket.send(sendPacket);
-			byte[] receiveData = new byte[1024];
-			here:{
-				DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-				clientSocket.receive(receivePacket);
-				ByteBuffer gotten = ByteBuffer.wrap(receivePacket.getData());
-				if(!checkData(receiveData, gotten.getShort(0))){
-					break here;
-				}
-				if (receivePacket.getData()[12]==1&&map.containsKey(gotten.getInt(6))){
-					ncs.recievedAck(gotten.getInt(6));
-					//map.get(gotten.getInt(6)).cancel(); /
-					Timer tmp = map.remove(gotten.getInt(6)); // can be error if not in map...
-					current++;
-					if(current==max){
-						max++;
-						current = 0;
-					}
-					tmp.cancel();
-					node = ncs.sendNextPacket();
-				}
-			}
-		}while(!ncs.ftpComplete());
-		clientSocket.close();
-	}
+
 	public static void contactServer() throws IOException {
 		int s = 8000;
 		// TODO Auto-generated method stub
@@ -167,7 +149,7 @@ public class NetworkServerSetup {
 		//byte[] toSend = createPacket(input.getBytes(), 0);
 		Node first = new Node(input.getBytes(), 0);
 		byte[] toSend = first.getPacket();
-		clientSocket = new DatagramSocket(4342);
+		clientSocket = new DatagramSocket(4000);
 		Timer t = new Timer();
 		TimerTaskMe2 task = new TimerTaskMe2(t);
 		t.schedule(task, 1000);
@@ -178,10 +160,14 @@ public class NetworkServerSetup {
 		DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
 		clientSocket.receive(receivePacket);
 		t.cancel();	
+		Thread thread = new Thread(new CheckClientReception(ncs, clientSocket));
+		thread.start();
+		sendNextPacket();
 		//clientSocket.close();
 		//restart();
-		Node node = ncs.sendNextPacket();
+		/*Node node = ncs.sendNextPacket();
 		do{
+			if(node==null) continue;
 			System.out.println(node.getSeqNum());
 			toSend = node.getPacket();
 			sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, s);
@@ -199,19 +185,19 @@ public class NetworkServerSetup {
 					break here;
 				}
 				if (receivePacket.getData()[12]==1&&map.containsKey(gotten.getInt(6))){
+					Timer tmp = map.remove(gotten.getInt(6)); // can be error if not in map...
+					tmp.cancel();
 					ncs.recievedAck(gotten.getInt(6));
 					//map.get(gotten.getInt(6)).cancel(); /
-					Timer tmp = map.remove(gotten.getInt(6)); // can be error if not in map...
 					current++;
 					if(current==max){
 						max++;
 						current = 0;
 					}
-					tmp.cancel();
 					node = ncs.sendNextPacket();
 				}
 			}
-		}while(!ncs.ftpComplete());
+		}while(!ncs.ftpComplete());*/
 	}
 	public static boolean checkData(byte[] data, short sum){
 		short checkSum = 0;
@@ -225,5 +211,40 @@ public class NetworkServerSetup {
 		checkSum = (short) (checkSum<<8);
 		checkSum+= B;
 		return (checkSum==sum);
+	}
+	public static void handle(DatagramPacket receivePacket) throws IOException {
+		// TODO Auto-generated method stub
+		ByteBuffer gotten = ByteBuffer.wrap(receivePacket.getData());
+		if(!checkData(receivePacket.getData(), gotten.getShort(0))){
+			return;
+		}
+		if (receivePacket.getData()[12]==1&&map.containsKey(gotten.getInt(6))){
+			Timer tmp = map.remove(gotten.getInt(6)); // can be error if not in map...
+			tmp.cancel();
+			ncs.recievedAck(gotten.getInt(6));
+			//map.get(gotten.getInt(6)).cancel(); /
+			current++;
+			if(current==max){
+				max++;
+				current = 0;
+			}
+			sendNextPacket();
+		}
+	}
+	private static void sendNextPacket() throws IOException {
+		// TODO Auto-generated method stub
+		int s = 8000;
+		InetAddress IPAddress = InetAddress.getByName("localhost");
+		Node node = ncs.sendNextPacket();
+		//System.out.println(node.getSeqNum());	
+		if(node==null) return;
+		byte[] toSend = node.getPacket();
+		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, s);
+		System.out.println(node.getSeqNum());
+		Timer time = new Timer();
+		TimerTaskMe tsk = new TimerTaskMe(time, node);
+		time.schedule(tsk, 2000);
+		map.put(node.getSeqNum(), time);
+		clientSocket.send(sendPacket);
 	}
 }

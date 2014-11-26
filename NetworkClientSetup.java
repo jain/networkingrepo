@@ -9,17 +9,24 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Scanner;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class NetworkClientSetup {
 	// multiply = 1
 	// add = 0
 	//private ArrayList<Node> packets;
-	private HashMap<Integer, Node> packetMap;
-	private LinkedList<Integer> queue;
+	private ConcurrentHashMap<Integer, Node> packetMap;
+	private ConcurrentLinkedQueue<Integer> queue;
+	private Set<Integer> seqNums;
+	private Set<Integer> current;
 	public int breakFile(byte[] data, int size) throws IOException{
 		/*FileOutputStream out = new FileOutputStream("copy.pdf");
 		out.write(data);
@@ -33,7 +40,7 @@ public class NetworkClientSetup {
 			}
 			Node toSend = new Node(temp, seqNum);
 			//packets.add(toSend);
-			queue.addLast(seqNum);
+			queue.add(seqNum);
 			packetMap.put(seqNum, toSend);
 			seqNum++;
 			count+=size;
@@ -51,7 +58,10 @@ public class NetworkClientSetup {
 		return (packetMap.isEmpty());
 	}
 	public void recievedAck(int seqNum){
-		queue.removeFirst(); // tmp
+		current.remove(seqNum);
+		seqNums.add(seqNum);
+		System.out.println("recieved" + seqNums.size());
+		queue.remove(seqNum); // tmp
 		if(packetMap.containsKey(seqNum)){
 			packetMap.remove(seqNum);
 			//return (packetMap.isEmpty());
@@ -60,116 +70,35 @@ public class NetworkClientSetup {
 		//return false;
 	}
 	public Node sendNextPacket(){
-		if(!queue.isEmpty()) return packetMap.get(queue.peek());//packets.get(index); 
+		if(!queue.isEmpty()) {
+			int seqNo = queue.peek();
+			System.out.println(seqNo +"," +current.contains(seqNo));
+			if(current.contains(seqNo)) return null;
+			System.out.println(seqNo);
+			current.add(seqNo);
+			queue.remove();
+			return packetMap.get(seqNo);//packets.get(index); 
+		}
 		return null;
 	}
-
+	public void addPacket(int seqNum){
+		queue.add(seqNum);
+	}
+	public boolean containsSeqNum(Integer num){
+		return seqNums.contains(num);
+	}
 	public NetworkClientSetup(String[] args) {
 		//packets = new ArrayList<Node>();
-		packetMap = new HashMap<Integer, Node>();
-		queue = new LinkedList<Integer>();
-		/*int command = -1, input1 = 0, input2 = 0, port = 0;
-		String ip = "";
-		try {
-			if (args[1].toLowerCase().equals("multiply")) {
-				command = 1;
-			} else if (args[1].toLowerCase().equals("add")) {
-				command = 0;
-			} else {
-				System.out.println("Invalid command");
-				return;
-			}
-			input1 = Integer.parseInt(args[2]);
-			input2 = Integer.parseInt(args[3]);
-			if (!(input1 >= 0 && input1 <= 65535 && input2 >= 0 && input2 <= 65535)) {
-				System.out.println("Invalid command");
-				return;
-			}
-			ip = args[0].split(":")[0];
-			port = Integer.parseInt(args[0].split(":")[1]);
-			if (!(port >= 0 && port <= 65535)) {
-				System.out.println("Invalid command");
-				return;
-			}
-			if (!check(ip)) {
-				System.out.println("Invalid command");
-				return;
-			}
-			DatagramSocket clientSocket = new DatagramSocket();
-			InetAddress IPAddress = InetAddress.getByName(ip);
-			byte[] sendData = new byte[1024];
-			byte[] receiveData = new byte[1024];
-			sendData = (command + " " + input1 + " " + input2 + " ").getBytes();
-			DatagramPacket sendPacket = new DatagramPacket(sendData,
-					sendData.length, IPAddress, port);
-			clientSocket.send(sendPacket);
-			clientSocket.setSoTimeout(2000);
-			DatagramPacket receivePacket = new DatagramPacket(receiveData,
-					receiveData.length);
-			clientSocket.receive(receivePacket);
-			String modifiedSentence = new String(receivePacket.getData());
-			System.out.println("From server: " + modifiedSentence);
-			clientSocket.close();
-		} catch (UnknownHostException e) {
-			System.out.println("Invalid command");
-		} catch (SocketTimeoutException e) {
-			System.out.println("The server has not answered in 2 seconds.");
-			System.out
-					.println("Enter \"retry\" to resend the message or \"exit\" to exit the application:");
-			Scanner scan = new Scanner(System.in);
-			String input = scan.nextLine();
-			if (input.toLowerCase().equals("exit")) {
-				return;
-			} else if (input.toLowerCase().equals("retry")) {
-				boolean retry = true;
-				while (retry)
-					try {
-						DatagramSocket clientSocket = new DatagramSocket();
-						InetAddress IPAddress = InetAddress.getByName(ip);
-						byte[] sendData = new byte[1024];
-						byte[] receiveData = new byte[1024];
-						sendData = (command + " " + input1 + " " + input2 + " ")
-								.getBytes();
-						DatagramPacket sendPacket = new DatagramPacket(
-								sendData, sendData.length, IPAddress, port);
-						clientSocket.send(sendPacket);
-						clientSocket.setSoTimeout(2000);
-						DatagramPacket receivePacket = new DatagramPacket(
-								receiveData, receiveData.length);
-						clientSocket.receive(receivePacket);
-						String modifiedSentence = new String(
-								receivePacket.getData());
-						System.out.println("From server: " + modifiedSentence);
-						retry = false;
-						clientSocket.close();
-					} catch (SocketTimeoutException e1) {
-						System.out.println("The server has not answered in 2 seconds.");
-						System.out
-								.println("Enter \"retry\" to resend the message or \"exit\" to exit the application:");
-						scan = new Scanner(System.in);
-						input = scan.nextLine();
-						if (input.toLowerCase().equals("exit")) {
-							retry = false;
-							return;
-						}else if (input.toLowerCase().equals("retry")) {
-							retry = true;
-						} else{
-							System.out.println("Invalid command");
-							retry = false;
-							return;
-						}
-					} catch (Exception e1) {
-
-					}
-			} else {
-				System.out.println("Invalid command");
-			}
-		} catch (SocketException e) {
-			System.out.println("Invalid command");
-		} catch (IOException e) {
-			System.out.println("Invalid command");
-		} catch (Exception e) {
-			System.out.println("Invalid command");
-		}*/
+		packetMap = new ConcurrentHashMap<Integer, Node>();
+		queue = new ConcurrentLinkedQueue<Integer>();
+		seqNums = Collections.synchronizedSet(new HashSet<Integer>());
+		current = Collections.synchronizedSet(new HashSet<Integer>());
+	}
+	public boolean containsCurrent(Integer num){
+		return (current.contains(num));
+	}
+	public void removeCurrent(int seqNum) {
+		// TODO Auto-generated method stub
+		current.remove(seqNum);
 	}
 }
