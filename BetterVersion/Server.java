@@ -18,8 +18,12 @@ public class Server implements Runnable{
 	private DatagramSocket serverSocket;
 	private InetAddress IPAddress;
 	private byte mode;
+	FTPRecieve ftprec;
+	FTPSend ftpsend;
 	public Server(String myPort, String ip, String port) throws SocketException, UnknownHostException{
 		// TODO Auto-generated constructor stub
+		ftpsend = null;
+		ftprec = null;
 		mode = -1;
 		window = Integer.MAX_VALUE;
 		this.myPort = Short.parseShort(myPort);
@@ -88,7 +92,7 @@ public class Server implements Runnable{
 				DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
 				serverSocket.receive(receivePacket);
 				Packet packet = new Packet(receiveData);
-				if(!packet.checkData(receiveData, packet.checkSum)) continue;
+				if(!packet.checkData(receiveData, packet.checkSum, packet.length+20)) continue;
 				if(packet.synchronization==1&&packet.mode==-1) acceptConnection(packet);
 				if(packet.synchronization==1) changeMode(packet);
 			} catch (IOException e){
@@ -99,13 +103,24 @@ public class Server implements Runnable{
 	private void changeMode(Packet packet) throws IOException {
 		// TODO Auto-generated method stub
 		mode = packet.mode;
-		Packet send = new Packet(null,myPort, port,(byte)-1,(byte)1,(byte)0,(byte)1, mode, window);
+		int seqNum = packet.seqNum;
+		//Packet packet = new Packet(data,myPort, port,seqNum,(byte)0,(byte)0,(byte)0,mode, window);
+		if(mode==1){
+			ftprec = new FTPRecieve(new String(packet.data));
+		}else{
+			ftpsend = new FTPSend(new String(packet.data));
+			seqNum = -1*ftpsend.getNumOfPackets();
+			// need to fix as need another ack to know the client is ready
+		}
+		Packet send = new Packet(null,myPort, port,seqNum,(byte)0,(byte)0,(byte)1, mode, window);
 		byte[] toSend = send.getPacket();
 		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
 		serverSocket.send(sendPacket);
 	}
 	private void acceptConnection(Packet packet) throws IOException {
-		Packet send = new Packet(null,myPort, port,(byte)-1,(byte)1,(byte)0,(byte)1,packet.mode, window);
+		//Packet packet = new Packet(input, source, dest, seqNum, synchronisation, finishConnection, ack, mode, window)
+		
+		Packet send = new Packet(null,myPort, port,-1,(byte)1,(byte)0,(byte)1,packet.mode, window);
 		byte[] toSend = send.getPacket();
 		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
 		serverSocket.send(sendPacket);

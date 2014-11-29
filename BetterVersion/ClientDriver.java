@@ -12,8 +12,8 @@ public class ClientDriver {
 	 * @throws IOException 
 	 */
 	/**
-	 * 0 = get
-	 * 1 = post
+	 * 0 = get == ftprec
+	 * 1 = post == ftpsend
 	 * @param args
 	 * @throws IOException
 	 */
@@ -27,7 +27,7 @@ public class ClientDriver {
 		// ignores if get or post without connect or disconnect
 		while(!rtp.isReady()){
 			String command = scan.nextLine();
-			if(command.equals("connect")){
+			if(command.equals("connect")&&!rtp.connection){
 				rtp.connect();
 			}else if(command.equals("disconnect")){
 				scan.close();
@@ -35,13 +35,25 @@ public class ClientDriver {
 			}else if(command.split(" ")[0].equals("window")){
 				rtp.setWindow(Integer.parseInt(command.split(" ")[1]));
 			} else if(command.split(" ")[0].equals("get")){
-				filename = (command.split(" ")[1]);
-				FTPRecieve ftp = new FTPRecieve();
-				rtp.setMode(0);
+				if(rtp.mode==-1){
+					filename = (command.split(" ")[1]);
+					FTPRecieve ftp = new FTPRecieve(filename);
+					rtp.setMode(0);
+					rtp.ftprec = ftp;
+					if(rtp.connection){
+						rtp.setServerMode();
+					}
+				}
 			} else if(command.split(" ")[0].equals("post")){
-				filename = (command.split(" ")[1]);
-				FTPSend ftp = new FTPSend(filename);
-				rtp.setMode(1);
+				if(rtp.mode==-1){
+					filename = (command.split(" ")[1]);
+					FTPSend ftp = new FTPSend(filename);
+					rtp.setMode(1);
+					rtp.ftpsend = ftp;
+					if(rtp.connection){
+						rtp.setServerMode();
+					}
+				}
 			}
 		}
 		Thread thread = new Thread(rtp);

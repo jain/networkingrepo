@@ -15,13 +15,19 @@ public class RTP implements Runnable{
 	private String ip;
 	private short port;
 	private int window;
-	private byte mode;
-	private boolean connection;
+	byte mode;
+	boolean connection;
+	boolean mood;
 	private DatagramSocket clientSocket;
 	private InetAddress IPAddress;
+	FTPRecieve ftprec;
+	FTPSend ftpsend;
 	public RTP(String myPort, String ip, String port) throws SocketException, UnknownHostException{
 		// TODO Auto-generated constructor stub
+		mood = false;
 		connection = false;
+		ftpsend = null;
+		ftprec = null;
 		mode = -1;
 		window = Integer.MAX_VALUE;
 		this.myPort = Short.parseShort(myPort);
@@ -74,7 +80,9 @@ public class RTP implements Runnable{
 		return true;
 	}
 	public void connect() throws IOException {
-		Packet packet = new Packet(null,myPort, port,(byte)-1,(byte)1,(byte)0,(byte)0,(byte)-1, window);
+		//Packet packet = new Packet(input, source, dest, seqNum, synchronisation, finishConnection, ack, mode, window)
+
+		Packet packet = new Packet(null,myPort, port,-1,(byte)1,(byte)0,(byte)0,(byte)-1, window);
 		byte[] toSend = packet.getPacket();
 		byte[] receiveData = new byte[1024];
 		Timer timeOut = new Timer();
@@ -85,7 +93,7 @@ public class RTP implements Runnable{
 		DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
 		clientSocket.receive(receivePacket);
 		packet = new Packet(receiveData);
-		if(packet.checkData(receiveData, packet.checkSum)){
+		if(packet.checkData(receiveData, packet.checkSum, packet.length+20)){
 			if(packet.synchronization==1&&packet.ack==1){
 				timeOut.cancel();
 				connection = true;
@@ -102,7 +110,7 @@ public class RTP implements Runnable{
 	}
 	public boolean isReady() {
 		// TODO Auto-generated method stub
-		return (mode!=-1&&connection);
+		return (mood&&connection);
 	}
 	@Override
 	public void run(){
@@ -117,6 +125,50 @@ public class RTP implements Runnable{
 		// TODO Auto-generated method stub
 		return false;
 	}
+	// 0 = get == ftprec
+	//1 = post == ftpsend
+	public void setServerMode() throws IOException {
+		// TODO Auto-generated method stub
+		byte[] data;
+		int seqNum=-1;
+		if(mode==0){// revise 
+			data = ftprec.getFile();
+		}else{
+			seqNum = -1*ftpsend.getNumOfPackets();
+			data = ftpsend.getFile();
+		}
+		Packet packet = new Packet(data,myPort, port,seqNum,(byte)0,(byte)0,(byte)0,mode, window);
+		byte[] toSend = packet.getPacket();
+		byte[] receiveData = new byte[1024];
+		Timer timeOut = new Timer();
+		TimerTaskMode task = new TimerTaskMode(timeOut);
+		timeOut.schedule(task, 1000);
+		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
+		clientSocket.send(sendPacket);
+		DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+		clientSocket.receive(receivePacket);
+		packet = new Packet(receiveData);
+		if(packet.checkData(receiveData, packet.checkSum, packet.length+20)){
+			if(packet.ack==1&&packet.mode==mode){
+				timeOut.cancel();
+				if(mode==0){
+					seqNum = packet.seqNum;
+					confimAck(seqNum);
+				}
+			}
+		}
+	}
+	private void confimAck(int seqNum) throws IOException {
+		// TODO Auto-generated method stub
+		Packet send = new Packet(null,myPort, port,seqNum,(byte)0,(byte)0,(byte)1, mode, window);
+		byte[] toSend = send.getPacket();
+		Timer timeOut = new Timer();
+		TimerTaskAck task = new TimerTaskAck(timeOut, seqNum);
+		timeOut.schedule(task, 1000);
+		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
+		clientSocket.send(sendPacket);
+		// keep sending till starts recieving packets
+	}
 	class TimerTaskConnect extends TimerTask{
 		private Timer timer;
 		public TimerTaskConnect(Timer timer){
@@ -128,15 +180,46 @@ public class RTP implements Runnable{
 			timer.cancel();
 			try {
 				connect();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+	class TimerTaskMode extends TimerTask{
+		private Timer timer;
+		public TimerTaskMode(Timer timer){
+			super();
+			this.timer = timer;
+		}
+		@Override
+		public void run() {
+			timer.cancel();
+			try {
 				setServerMode();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
-		private void setServerMode() {
-			// TODO Auto-generated method stub
-			
+	}
+	class TimerTaskAck extends TimerTask{
+		private Timer timer;
+		private int seqNum;
+		public TimerTaskAck(Timer timer, int seqNum){
+			super();
+			this.timer = timer;
+			this.seqNum = seqNum;
+		}
+		@Override
+		public void run() {
+			timer.cancel();
+			try {
+				confimAck(seqNum);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 	}
 }

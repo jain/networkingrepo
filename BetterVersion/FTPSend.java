@@ -28,6 +28,9 @@ public class FTPSend {
 		byte[] fileData = Files.readAllBytes(path);
 		segments = breakFile(fileData, 1000);
 	}
+	public int getNumOfPackets(){
+		return segments;
+	}
 	public int breakFile(byte[] data, int size) throws IOException{
 		int count = 0;
 		int seqNum = 1;
@@ -42,6 +45,10 @@ public class FTPSend {
 			count+=size;
 		}
 		return (seqNum-1);
+	}
+	public byte[] getFile() {
+		// TODO Auto-generated method stub
+		return fileName.getBytes();
 	}
 
 }

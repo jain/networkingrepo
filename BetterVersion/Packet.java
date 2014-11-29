@@ -15,6 +15,7 @@ public class Packet {
 	int window;
 	short checkSum;
 	byte[] data;
+	short length;
 	public Packet(byte[] receiveData){
 		ByteBuffer gotten = ByteBuffer.wrap(receiveData);
 		checkSum = gotten.getShort(0);
@@ -53,7 +54,7 @@ public class Packet {
 		this.mode = mode;
 		this.window = window;
 		if(input!=null){
-			short length = (short)input.length;
+			length = (short)input.length;
 			packet = ByteBuffer.allocate(18+length);
 			packet.putShort(source);
 			packet.putShort(dest);
@@ -71,6 +72,7 @@ public class Packet {
 			packet.putShort(checkSum);
 			packet.put(data);
 		}else{
+			length = 0;
 			packet = ByteBuffer.allocate(18);
 			packet.putShort(source);
 			packet.putShort(dest);
@@ -80,7 +82,7 @@ public class Packet {
 			packet.put(ack);
 			packet.put(mode);
 			packet.putInt(window);
-			packet.putShort((short) 0);
+			packet.putShort(length);
 			byte[] data = packet.array();
 			short checkSum = checkSum(data);
 			packet = ByteBuffer.allocate(20);
@@ -104,11 +106,11 @@ public class Packet {
 		checkSum+= B;
 		return checkSum;
 	}
-	public boolean checkData(byte[] data, short sum){
+	public boolean checkData(byte[] data, short sum, int end){
 		short checkSum = 0;
 		byte A = 0;
 		byte B = 0;
-		for(int i = 2; i<data.length; i++){
+		for(int i = 2; i<end; i++){
 			A+= data[i];
 			B+= A;
 		}
