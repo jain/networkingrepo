@@ -53,7 +53,35 @@ public class FTPSend {
 	}
 	public byte[] sendNextPacket() {
 		// TODO Auto-generated method stub
+		if(!queue.isEmpty()) {
+			int seqNo = queue.peek();
+			System.out.println(seqNo +"," +current.contains(seqNo));
+			if(current.contains(seqNo)) return null;
+			System.out.println(seqNo);
+			current.add(seqNo);
+			queue.remove();
+			return packetMap.get(seqNo);//packets.get(index); 
+		}
 		return null;
 	}
-
+	public void removeCurrent(int seqNum) {
+		// TODO Auto-generated method stub
+		current.remove(seqNum);
+	}
+	public void addPacket(int seqNum){
+		queue.addFirst(seqNum);
+	}
+	public void recievedAck(int seqNum) {
+		// TODO Auto-generated method stub
+		current.remove(seqNum);
+		seqNums.add(seqNum);
+		System.out.println("recieved" + seqNums.size());
+		queue.remove(seqNum); // tmp
+		if(packetMap.containsKey(seqNum)){
+			packetMap.remove(seqNum);
+		}
+	}
+	public boolean ftpComplete(){
+		return (packetMap.isEmpty());
+	}
 }

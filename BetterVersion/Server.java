@@ -89,21 +89,32 @@ public class Server implements Runnable{
 				serverSocket.receive(receivePacket);
 				Packet packet = new Packet(receiveData);
 				if(!packet.checkData(receiveData, packet.checkSum, packet.length+20)) continue;
+				System.out.println(packet.seqNum);
 				if(packet.synchronization==1&&packet.mode==-1) acceptConnection(packet);
 				else if(packet.synchronization==1) changeMode(packet);
+				else if(packet.length>0){
+					ftprec.addData(packet.data, packet.seqNum);
+					Packet send = new Packet(null,myPort, port,packet.seqNum,(byte)0,(byte)0,(byte)1, mode, window);
+					byte[] toSend = send.getPacket();
+					DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
+					serverSocket.send(sendPacket);
+				}
 			} catch (IOException e){
-
+				
 			}
 		}
 	}
 	private void changeMode(Packet packet) throws IOException {
 		// TODO Auto-generated method stub
+		System.out.println(1);
 		mode = packet.mode;
 		int seqNum = packet.seqNum;
 		//Packet packet = new Packet(data,myPort, port,seqNum,(byte)0,(byte)0,(byte)0,mode, window);
 		if(mode==1){
-			ftprec = new FTPRecieve(new String(packet.data));
-			ftprec.setNumOfPackets(packet.seqNum*-1);
+			if(ftprec==null){
+				ftprec = new FTPRecieve(new String(packet.data));
+				ftprec.setNumOfPackets(packet.seqNum*-1);
+			}
 			Packet send = new Packet(null,myPort, port,seqNum,(byte)0,(byte)0,(byte)1, mode, window);
 			byte[] toSend = send.getPacket();
 			DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
@@ -116,7 +127,7 @@ public class Server implements Runnable{
 	}
 	private void acceptConnection(Packet packet) throws IOException {
 		//Packet packet = new Packet(input, source, dest, seqNum, synchronisation, finishConnection, ack, mode, window)
-		
+
 		Packet send = new Packet(null,myPort, port,-1,(byte)1,(byte)0,(byte)1,packet.mode, window);
 		byte[] toSend = send.getPacket();
 		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);

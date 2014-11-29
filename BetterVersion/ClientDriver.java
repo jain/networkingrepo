@@ -58,13 +58,14 @@ public class ClientDriver {
 		}
 		Thread thread = new Thread(rtp);
 		thread.start();
-		String command = scan.nextLine();
-		while(!command.equals("disconnect")&&!rtp.isComplete()){
-			command = scan.nextLine();
-		}
+		String command = "";
+		/*while(!rtp.isComplete()){
+			if()
+		}*/
 		if(!rtp.isComplete()){
 			thread.interrupt();
 		}
+
 	}
 
 }

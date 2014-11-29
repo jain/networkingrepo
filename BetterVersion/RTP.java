@@ -24,9 +24,11 @@ public class RTP implements Runnable{
 	FTPRecieve ftprec;
 	FTPSend ftpsend;
 	boolean mood1;
+	boolean complete;
 	private ConcurrentHashMap<Integer, Timer> map;
 	public RTP(String myPort, String ip, String port) throws SocketException, UnknownHostException{
 		// TODO Auto-generated constructor stub
+		complete = false;
 		map = new ConcurrentHashMap<Integer, Timer>();
 		mood1 = false;
 		mood = false;
@@ -125,19 +127,59 @@ public class RTP implements Runnable{
 	public void run(){
 		// TODO Auto-generated method stub
 		boolean execute = true;
-		while(execute&&!Thread.interrupted()){
-
+		try {
+			sendNextPacket();
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
 		}
+		while(execute&&!Thread.interrupted()){
+			if(mode==1){
+				byte[] receiveData = new byte[1024];
+				DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+				receivePacket = new DatagramPacket(receiveData, receiveData.length);
+				try {
+					clientSocket.receive(receivePacket);
+					handle(receivePacket);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				if(ftpsend.ftpComplete()){
+					execute = false;
+					complete = true;
+				}
+			}
+		}
+		clientSocket.close();
 
+	}
+	private void handle(DatagramPacket receivePacket) throws IOException {
+		// TODO Auto-generated method stub
+		Packet packet = new Packet(receivePacket.getData());
+		if(!packet.checkData(packet.getPacket(), packet.checkSum, packet.length+20)) return;
+		if (receivePacket.getData()[12]==1&&map.containsKey(packet.seqNum)){
+			Timer tmp = map.remove(packet.seqNum); // can be error if not in map...
+			tmp.cancel();
+			ftpsend.recievedAck(packet.seqNum);
+			//map.get(gotten.getInt(6)).cancel(); /
+			/*current++;
+			if(current==max){
+				max++;
+				current = 0;
+				sendNextPacket(); // conjestion control
+			}*/
+			sendNextPacket();
+		}
 	}
 	public boolean isComplete() {
 		// TODO Auto-generated method stub
-		return false;
+		return complete;
 	}
 	// 0 = get == ftprec
 	//1 = post == ftpsend
 	public void setServerMode() throws IOException {
 		// TODO Auto-generated method stub
+		//System.out.println(1);
 		byte[] data;
 		int seqNum=-1;
 		if(mode==0){// revise 
@@ -146,9 +188,10 @@ public class RTP implements Runnable{
 			seqNum = -1*ftpsend.getNumOfPackets();
 			data = ftpsend.getFile();
 		}
-		Packet packet = new Packet(data,myPort, port,seqNum,(byte)0,(byte)0,(byte)0,mode, window);
+		Packet packet = new Packet(data,myPort, port,seqNum,(byte)1,(byte)0,(byte)0,mode, window);
 		byte[] toSend = packet.getPacket();
 		byte[] receiveData = new byte[1024];
+		//System.out.println(2);
 		Timer timeOut = new Timer();
 		TimerTaskMode task = new TimerTaskMode(timeOut);
 		timeOut.schedule(task, 1000);
@@ -156,9 +199,11 @@ public class RTP implements Runnable{
 		clientSocket.send(sendPacket);
 		DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
 		clientSocket.receive(receivePacket);
+		//System.out.println(3);
 		packet = new Packet(receiveData);
 		if(packet.checkData(receiveData, packet.checkSum, packet.length+20)){
 			if(packet.ack==1&&packet.mode==mode){
+				//System.out.println(4);
 				mood1 = true;
 				timeOut.cancel();
 				if(mode==0){
@@ -166,22 +211,24 @@ public class RTP implements Runnable{
 					confimAck(seqNum);// sends back Ack 
 				}else{
 					mood = true;
-					sendNextPacket();
+					//sendNextPacket();
 				}
 			}
 		}
 	}
-	private void sendNextPacket() {
-		/*byte[] data = ftpsend.sendNextPacket();
+	public void sendNextPacket() throws IOException {
+		byte[] data = ftpsend.sendNextPacket();
 		if(data==null) return;
-		Packet packet = new Packet(data, );
+		//Packet packet = new Packet(input, source, dest, seqNum, synchronisation, finishConnection, ack, mode, window)
+		Packet packet = new Packet(data, myPort, port, ftpsend.numToData.get(data),
+				(byte)0, (byte)0, (byte)0, mode, window);
 		byte[] toSend = packet.getPacket();
 		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
 		Timer time = new Timer();
 		TimerTaskSend tsk = new TimerTaskSend(time, data);
 		time.schedule(tsk, 2000);
 		map.put(ftpsend.numToData.get(data), time);
-		clientSocket.send(sendPacket);*/
+		clientSocket.send(sendPacket);
 	}
 	private void confimAck(int seqNum) throws IOException {
 		// TODO Auto-generated method stub
@@ -247,33 +294,31 @@ public class RTP implements Runnable{
 			}
 		}
 	}
-	class TimerTaskMe extends TimerTask{
+	class TimerTaskSend extends TimerTask{
 		private Timer timer;
-		private Node node;
-		public TimerTaskMe(Timer timer, Node node){
+		private byte[] data;
+		public TimerTaskSend(Timer timer, byte[] data){
 			super();
 			this.timer = timer;
-			this.node = node;
+			this.data= data;
 		}
 		@Override
 		public void run() {
-			/*timer.cancel();
-			map.remove(node.getSeqNum());
-			/*ncs.removeCurrent(node.getSeqNum());
-			current = 0;
-			max--;
-			ncs.addPacket(node.getSeqNum());
+			int seqNum = ftpsend.numToData.get(data);
+			timer.cancel();
+			map.remove(seqNum);
+			ftpsend.removeCurrent(seqNum);
+			//current = 0;
+			//max--;
+			ftpsend.addPacket(seqNum);
 			//ncs.addToEnd(node);
 			if(map.size()==0){
 				try{
-					sendMore();
+					sendNextPacket();
 				} catch (IOException e){
 
 				}
-			}*/
-		}
-		public void sendMore() throws IOException{
-			sendNextPacket();
+			}
 		}
 	}
 }

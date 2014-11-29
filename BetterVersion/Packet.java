@@ -14,29 +14,29 @@ public class Packet {
 	byte[] data;
 	short length;
 	public Packet(byte[] receiveData){
-		ByteBuffer gotten = ByteBuffer.wrap(receiveData);
-		checkSum = gotten.getShort(0);
-		source = gotten.getShort(2);
-		dest = gotten.getShort(4);
-		seqNum = gotten.getInt(6);
-		synchronization = gotten.get(10);
-		finishConnection = gotten.get(11);
-		ack = gotten.get(12);
-		mode = gotten.get(13);
-		window = gotten.getInt(14);
-		short dataLength = gotten.getShort(18);
-		if(dataLength>0){
-			byte[] data = new byte[dataLength];
-			for(int i = 20; i<(20+dataLength); i++){
+		packet = ByteBuffer.wrap(receiveData);
+		checkSum = packet.getShort(0);
+		source = packet.getShort(2);
+		dest = packet.getShort(4);
+		seqNum = packet.getInt(6);
+		synchronization = packet.get(10);
+		finishConnection = packet.get(11);
+		ack = packet.get(12);
+		mode = packet.get(13);
+		window = packet.getInt(14);
+		length = packet.getShort(18);
+		if(length>0){
+			data = new byte[length];
+			for(int i = 20; i<(20+length); i++){
 				data[i-20] = receiveData[i];
 			}
-			/*if(rfh==null&&gotten.getInt(6)==0){
+			/*if(rfh==null&&packet.getInt(6)==0){
 				String reception = new String(data);
 				System.out.println(reception);
 				String[] fileData = reception.split("!");
 				rfh = new RecieverFileHandler(fileData[1], Integer.parseInt(fileData[0]));
 			}else{
-				rfh.addData(data, gotten.getInt(6));
+				rfh.addData(data, packet.getInt(6));
 			}*/
 			//System.out.println("name:" + new String(name));
 		}
@@ -51,6 +51,7 @@ public class Packet {
 		this.mode = mode;
 		this.window = window;
 		if(input!=null){
+			this.data = input;
 			length = (short)input.length;
 			packet = ByteBuffer.allocate(18+length);
 			packet.putShort(source);
@@ -63,11 +64,11 @@ public class Packet {
 			packet.putInt(window);
 			packet.putShort(length);
 			packet.put(input);
-			byte[] data = packet.array();
-			checkSum = checkSum(data);
+			byte[] tmp = packet.array();
+			checkSum = checkSum(tmp);
 			packet = ByteBuffer.allocate(20+length);
 			packet.putShort(checkSum);
-			packet.put(data);
+			packet.put(tmp);
 		}else{
 			length = 0;
 			packet = ByteBuffer.allocate(18);
@@ -80,13 +81,14 @@ public class Packet {
 			packet.put(mode);
 			packet.putInt(window);
 			packet.putShort(length);
-			byte[] data = packet.array();
-			short checkSum = checkSum(data);
+			byte[] tmp = packet.array();
+			short checkSum = checkSum(tmp);
 			packet = ByteBuffer.allocate(20);
 			packet.putShort(checkSum);
-			packet.put(data);
+			packet.put(tmp);
 		}
 	}
+
 	public byte[] getPacket(){
 		return packet.array();
 	}
