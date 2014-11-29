@@ -1,4 +1,3 @@
-package Client;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -9,6 +8,8 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.ConcurrentHashMap;
+
 
 public class RTP implements Runnable{
 	private short myPort;
@@ -22,8 +23,12 @@ public class RTP implements Runnable{
 	private InetAddress IPAddress;
 	FTPRecieve ftprec;
 	FTPSend ftpsend;
+	boolean mood1;
+	private ConcurrentHashMap<Integer, Timer> map;
 	public RTP(String myPort, String ip, String port) throws SocketException, UnknownHostException{
 		// TODO Auto-generated constructor stub
+		map = new ConcurrentHashMap<Integer, Timer>();
+		mood1 = false;
 		mood = false;
 		connection = false;
 		ftpsend = null;
@@ -81,22 +86,26 @@ public class RTP implements Runnable{
 	}
 	public void connect() throws IOException {
 		//Packet packet = new Packet(input, source, dest, seqNum, synchronisation, finishConnection, ack, mode, window)
-
+		//System.out.println(1);
 		Packet packet = new Packet(null,myPort, port,-1,(byte)1,(byte)0,(byte)0,(byte)-1, window);
 		byte[] toSend = packet.getPacket();
 		byte[] receiveData = new byte[1024];
 		Timer timeOut = new Timer();
 		TimerTaskConnect task = new TimerTaskConnect(timeOut);
 		timeOut.schedule(task, 1000);
+		//System.out.println(2);
 		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
 		clientSocket.send(sendPacket);
+		//System.out.println(3);
 		DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
 		clientSocket.receive(receivePacket);
 		packet = new Packet(receiveData);
+		//System.out.println(4);
 		if(packet.checkData(receiveData, packet.checkSum, packet.length+20)){
 			if(packet.synchronization==1&&packet.ack==1){
 				timeOut.cancel();
 				connection = true;
+				System.out.println(5);
 			}
 		}
 	}
@@ -150,13 +159,29 @@ public class RTP implements Runnable{
 		packet = new Packet(receiveData);
 		if(packet.checkData(receiveData, packet.checkSum, packet.length+20)){
 			if(packet.ack==1&&packet.mode==mode){
+				mood1 = true;
 				timeOut.cancel();
 				if(mode==0){
-					seqNum = packet.seqNum;
-					confimAck(seqNum);
+					ftprec.setNumOfPackets(-1*packet.seqNum);
+					confimAck(seqNum);// sends back Ack 
+				}else{
+					mood = true;
+					sendNextPacket();
 				}
 			}
 		}
+	}
+	private void sendNextPacket() {
+		/*byte[] data = ftpsend.sendNextPacket();
+		if(data==null) return;
+		Packet packet = new Packet(data, );
+		byte[] toSend = packet.getPacket();
+		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
+		Timer time = new Timer();
+		TimerTaskSend tsk = new TimerTaskSend(time, data);
+		time.schedule(tsk, 2000);
+		map.put(ftpsend.numToData.get(data), time);
+		clientSocket.send(sendPacket);*/
 	}
 	private void confimAck(int seqNum) throws IOException {
 		// TODO Auto-generated method stub
@@ -179,7 +204,7 @@ public class RTP implements Runnable{
 		public void run() {
 			timer.cancel();
 			try {
-				connect();
+				if (connection == false) connect();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -196,7 +221,7 @@ public class RTP implements Runnable{
 		public void run() {
 			timer.cancel();
 			try {
-				setServerMode();
+				if (mood1 == false) setServerMode();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -220,6 +245,35 @@ public class RTP implements Runnable{
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+		}
+	}
+	class TimerTaskMe extends TimerTask{
+		private Timer timer;
+		private Node node;
+		public TimerTaskMe(Timer timer, Node node){
+			super();
+			this.timer = timer;
+			this.node = node;
+		}
+		@Override
+		public void run() {
+			/*timer.cancel();
+			map.remove(node.getSeqNum());
+			/*ncs.removeCurrent(node.getSeqNum());
+			current = 0;
+			max--;
+			ncs.addPacket(node.getSeqNum());
+			//ncs.addToEnd(node);
+			if(map.size()==0){
+				try{
+					sendMore();
+				} catch (IOException e){
+
+				}
+			}*/
+		}
+		public void sendMore() throws IOException{
+			sendNextPacket();
 		}
 	}
 }

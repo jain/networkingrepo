@@ -1,5 +1,3 @@
-package Client;
-
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Scanner;

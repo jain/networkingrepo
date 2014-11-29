@@ -1,6 +1,3 @@
-package Client;
-
-
 import java.nio.ByteBuffer;
 
 public class Packet {

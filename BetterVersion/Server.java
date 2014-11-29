@@ -1,13 +1,9 @@
-package Client;
-
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-
-import Client.Packet;
 
 public class Server implements Runnable{
 	private short myPort;
@@ -94,7 +90,7 @@ public class Server implements Runnable{
 				Packet packet = new Packet(receiveData);
 				if(!packet.checkData(receiveData, packet.checkSum, packet.length+20)) continue;
 				if(packet.synchronization==1&&packet.mode==-1) acceptConnection(packet);
-				if(packet.synchronization==1) changeMode(packet);
+				else if(packet.synchronization==1) changeMode(packet);
 			} catch (IOException e){
 
 			}
@@ -107,15 +103,16 @@ public class Server implements Runnable{
 		//Packet packet = new Packet(data,myPort, port,seqNum,(byte)0,(byte)0,(byte)0,mode, window);
 		if(mode==1){
 			ftprec = new FTPRecieve(new String(packet.data));
+			ftprec.setNumOfPackets(packet.seqNum*-1);
+			Packet send = new Packet(null,myPort, port,seqNum,(byte)0,(byte)0,(byte)1, mode, window);
+			byte[] toSend = send.getPacket();
+			DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
+			serverSocket.send(sendPacket);
 		}else{
 			ftpsend = new FTPSend(new String(packet.data));
 			seqNum = -1*ftpsend.getNumOfPackets();
-			// need to fix as need another ack to know the client is ready
+			// has to keep sending like client
 		}
-		Packet send = new Packet(null,myPort, port,seqNum,(byte)0,(byte)0,(byte)1, mode, window);
-		byte[] toSend = send.getPacket();
-		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
-		serverSocket.send(sendPacket);
 	}
 	private void acceptConnection(Packet packet) throws IOException {
 		//Packet packet = new Packet(input, source, dest, seqNum, synchronisation, finishConnection, ack, mode, window)
@@ -124,6 +121,7 @@ public class Server implements Runnable{
 		byte[] toSend = send.getPacket();
 		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
 		serverSocket.send(sendPacket);
+		System.out.println("rec");
 	}
 	public boolean isPossible() {
 		return possible;
