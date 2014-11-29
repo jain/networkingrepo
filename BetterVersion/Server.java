@@ -4,6 +4,9 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Server implements Runnable{
 	private short myPort;
@@ -16,8 +19,16 @@ public class Server implements Runnable{
 	private byte mode;
 	FTPRecieve ftprec;
 	FTPSend ftpsend;
+	boolean mood1;
+	int max;
+	int current;
+	private ConcurrentHashMap<Integer, Timer> map;
 	public Server(String myPort, String ip, String port) throws SocketException, UnknownHostException{
 		// TODO Auto-generated constructor stub
+		max = 1;
+		current = 0;
+		map = new ConcurrentHashMap<Integer, Timer>();
+		mood1 = false;
 		ftpsend = null;
 		ftprec = null;
 		mode = -1;
@@ -77,7 +88,7 @@ public class Server implements Runnable{
 	}
 	public void setWindow(int win){
 		window = win;
-		System.out.println(win);
+		//System.out.println(win);
 	}
 	@Override
 	public void run(){
@@ -89,24 +100,71 @@ public class Server implements Runnable{
 				serverSocket.receive(receivePacket);
 				Packet packet = new Packet(receiveData);
 				if(!packet.checkData(receiveData, packet.checkSum, packet.length+20)) continue;
-				System.out.println(packet.seqNum);
+				//System.out.println(packet.seqNum);
 				if(packet.synchronization==1&&packet.mode==-1) acceptConnection(packet);
 				else if(packet.synchronization==1) changeMode(packet);
 				else if(packet.length>0){
-					ftprec.addData(packet.data, packet.seqNum);
-					Packet send = new Packet(null,myPort, port,packet.seqNum,(byte)0,(byte)0,(byte)1, mode, window);
-					byte[] toSend = send.getPacket();
-					DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
-					serverSocket.send(sendPacket);
+					if(mode==1){
+						ftprec.addData(packet.data, packet.seqNum);
+						Packet send = new Packet(null,myPort, port,packet.seqNum,(byte)0,(byte)0,(byte)1, mode, window);
+						byte[] toSend = send.getPacket();
+						DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
+						serverSocket.send(sendPacket);
+					}
+				}else if(mode==0){
+					receiveData = new byte[1024];
+					receivePacket = new DatagramPacket(receiveData, receiveData.length);
+					receivePacket = new DatagramPacket(receiveData, receiveData.length);
+					try {
+						serverSocket.receive(receivePacket);
+						handle(receivePacket);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
 				}
+
 			} catch (IOException e){
-				
+
 			}
+		}
+	}
+	public void sendNextPacket() throws IOException {
+		byte[] data = ftpsend.sendNextPacket();
+		if(data==null) return;
+		//Packet packet = new Packet(input, source, dest, seqNum, synchronisation, finishConnection, ack, mode, window)
+		Packet packet = new Packet(data, myPort, port, ftpsend.numToData.get(data),
+				(byte)0, (byte)0, (byte)0, mode, window);
+		byte[] toSend = packet.getPacket();
+		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
+		Timer time = new Timer();
+		TimerTaskSend tsk = new TimerTaskSend(time, data);
+		time.schedule(tsk, 1000);
+		map.put(ftpsend.numToData.get(data), time);
+		serverSocket.send(sendPacket);
+	}
+	private void handle(DatagramPacket receivePacket) throws IOException {
+		// TODO Auto-generated method stub
+		Packet packet = new Packet(receivePacket.getData());
+		if(!packet.checkData(packet.getPacket(), packet.checkSum, packet.length+20)) return;
+		if (receivePacket.getData()[12]==1&&map.containsKey(packet.seqNum)){
+			Timer tmp = map.remove(packet.seqNum); // can be error if not in map...
+			tmp.cancel();
+			ftpsend.recievedAck(packet.seqNum);
+			//map.get(gotten.getInt(6)).cancel(); /
+			current++;
+			if(current==max){
+				max++;
+				if(max>window){
+					max = window;
+				}
+				current = 0;
+				sendNextPacket(); // conjestion control
+			}
+			sendNextPacket();
 		}
 	}
 	private void changeMode(Packet packet) throws IOException {
 		// TODO Auto-generated method stub
-		System.out.println(1);
 		mode = packet.mode;
 		int seqNum = packet.seqNum;
 		//Packet packet = new Packet(data,myPort, port,seqNum,(byte)0,(byte)0,(byte)0,mode, window);
@@ -122,7 +180,29 @@ public class Server implements Runnable{
 		}else{
 			ftpsend = new FTPSend(new String(packet.data));
 			seqNum = -1*ftpsend.getNumOfPackets();
+			packet = new Packet(ftpsend.getFile(),myPort, port,seqNum,(byte)1,(byte)0,(byte)0,mode, window);
+
+			byte[] toSend = packet.getPacket();
+			byte[] receiveData = new byte[1024];
 			// has to keep sending like client
+
+			Timer timeOut = new Timer();
+			TimerTaskMode task = new TimerTaskMode(timeOut, packet);
+			timeOut.schedule(task, 1000);
+			DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
+			serverSocket.send(sendPacket);
+			DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+			serverSocket.receive(receivePacket);
+			//System.out.println(3);
+			packet = new Packet(receiveData);
+			if(packet.checkData(receiveData, packet.checkSum, packet.length+20)){
+				if(packet.ack==1&&packet.mode==mode&&packet.seqNum==seqNum){
+					//System.out.println(4);
+					mood1 = true;
+					timeOut.cancel();
+					sendNextPacket();
+				}
+			}
 		}
 	}
 	private void acceptConnection(Packet packet) throws IOException {
@@ -132,9 +212,60 @@ public class Server implements Runnable{
 		byte[] toSend = send.getPacket();
 		DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
 		serverSocket.send(sendPacket);
-		System.out.println("rec");
+		//System.out.println("rec");
 	}
 	public boolean isPossible() {
 		return possible;
+	}
+	class TimerTaskMode extends TimerTask{
+		private Timer timer;
+		private Packet packet;
+		public TimerTaskMode(Timer timer, Packet packet){
+			super();
+			this.timer = timer;
+			this.packet = packet;
+		}
+		@Override
+		public void run() {
+			//System.out.println("hello1");
+			timer.cancel();
+			try {
+				if (mood1 == false) changeMode(packet);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+	class TimerTaskSend extends TimerTask{
+		private Timer timer;
+		private byte[] data;
+		public TimerTaskSend(Timer timer, byte[] data){
+			super();
+			this.timer = timer;
+			this.data= data;
+		}
+		@Override
+		public void run() {
+			//System.out.println("hello2");
+			int seqNum = ftpsend.numToData.get(data);
+			timer.cancel();
+			map.remove(seqNum);
+			ftpsend.removeCurrent(seqNum);
+			current = 0;
+			max--;
+			if(max==0){
+				max = 1;
+			}
+			ftpsend.addPacket(seqNum);
+			//ncs.addToEnd(node);
+			if(map.size()==0){
+				try{
+					sendNextPacket();
+				} catch (IOException e){
+
+				}
+			}
+		}
 	}
 }

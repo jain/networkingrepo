@@ -11,9 +11,9 @@ public class ServerDriver {
 	 */
 	public static void main(String[] args) throws SocketException, UnknownHostException {
 		// TODO Auto-generated method stub
-		for(String s: args){
+		/*for(String s: args){
 			System.out.println(s);
-		}
+		}*/
 		Server server = new Server(args[0], args[1], args[2]);
 		Scanner scan = new Scanner(System.in);
 		if(!server.isPossible()) return;

@@ -8,7 +8,9 @@ public class FTPRecieve {
 	private String fileName;
 	private int numOfPackets;
 	private HashMap<Integer, byte[]> packets;
+	private long start;
 	public FTPRecieve(String filename){
+		start = System.currentTimeMillis();
 		fileName = filename;
 		packets = new HashMap<Integer, byte[]>();
 	}
@@ -16,7 +18,7 @@ public class FTPRecieve {
 		if(packets.containsKey(seqNum)) return false;
 		packets.put(seqNum, data);
 		numOfPackets--;
-		System.out.println("remaining" +  numOfPackets);
+		//System.out.println("remaining" +  numOfPackets);
 		if(numOfPackets==0){
 			try {
 				createFile();
@@ -31,8 +33,11 @@ public class FTPRecieve {
 		return true;
 	}
 	private void createFile() throws IOException {
-		// TODO Auto-generated method stub
+		// TODO Auto-generated method stub 
 		byte[] output = reOrder();
+		long stop = System.currentTimeMillis();
+		double time = ((double)(stop-start))/1000.0;
+		System.out.println("throughput="+(time/((double)output.length+numOfPackets*20)));
 		FileOutputStream fos = new FileOutputStream("copy" + fileName);
 		fos.write(output);
 		fos.close();

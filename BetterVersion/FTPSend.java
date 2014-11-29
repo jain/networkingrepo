@@ -55,9 +55,9 @@ public class FTPSend {
 		// TODO Auto-generated method stub
 		if(!queue.isEmpty()) {
 			int seqNo = queue.peek();
-			System.out.println(seqNo +"," +current.contains(seqNo));
+			//System.out.println(seqNo +"," +current.contains(seqNo));
 			if(current.contains(seqNo)) return null;
-			System.out.println(seqNo);
+			//System.out.println(seqNo);
 			current.add(seqNo);
 			queue.remove();
 			return packetMap.get(seqNo);//packets.get(index); 
@@ -75,7 +75,7 @@ public class FTPSend {
 		// TODO Auto-generated method stub
 		current.remove(seqNum);
 		seqNums.add(seqNum);
-		System.out.println("recieved" + seqNums.size());
+		//System.out.println("recieved" + seqNums.size());
 		queue.remove(seqNum); // tmp
 		if(packetMap.containsKey(seqNum)){
 			packetMap.remove(seqNum);

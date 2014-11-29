@@ -26,8 +26,14 @@ public class RTP implements Runnable{
 	boolean mood1;
 	boolean complete;
 	private ConcurrentHashMap<Integer, Timer> map;
+	int max;
+	int current;
+	boolean execute;
+	Thread t;
 	public RTP(String myPort, String ip, String port) throws SocketException, UnknownHostException{
 		// TODO Auto-generated constructor stub
+		max = 1;
+		current = 0;
 		complete = false;
 		map = new ConcurrentHashMap<Integer, Timer>();
 		mood1 = false;
@@ -107,7 +113,7 @@ public class RTP implements Runnable{
 			if(packet.synchronization==1&&packet.ack==1){
 				timeOut.cancel();
 				connection = true;
-				System.out.println(5);
+				//System.out.println(5);
 			}
 		}
 	}
@@ -126,12 +132,14 @@ public class RTP implements Runnable{
 	@Override
 	public void run(){
 		// TODO Auto-generated method stub
-		boolean execute = true;
-		try {
-			sendNextPacket();
-		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
+		execute = true;
+		if(mode==1){
+			try {
+				sendNextPacket();
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
 		}
 		while(execute&&!Thread.interrupted()){
 			if(mode==1){
@@ -148,8 +156,35 @@ public class RTP implements Runnable{
 					execute = false;
 					complete = true;
 				}
+			}else{
+				byte[] receiveData = new byte[1024];
+				DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+				try {
+					clientSocket.receive(receivePacket);
+					Packet packet = new Packet(receiveData);
+					if(!packet.checkData(receiveData, packet.checkSum, packet.length+20)) continue;
+					if(packet.seqNum<0){
+						Packet send = new Packet(null,myPort, port,packet.seqNum,(byte)0,(byte)0,(byte)1, mode, window);
+						byte[] toSend = send.getPacket();
+						DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
+						clientSocket.send(sendPacket);
+					}
+					else if(packet.length>0){
+						//System.out.println("seqNum:" + packet.seqNum);
+						ftprec.addData(packet.data, packet.seqNum);
+						Packet send = new Packet(null,myPort, port,packet.seqNum,(byte)0,(byte)0,(byte)1, mode, window);
+						byte[] toSend = send.getPacket();
+						DatagramPacket sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
+						clientSocket.send(sendPacket);
+					}
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+
 			}
 		}
+		t.stop();
 		clientSocket.close();
 
 	}
@@ -162,12 +197,15 @@ public class RTP implements Runnable{
 			tmp.cancel();
 			ftpsend.recievedAck(packet.seqNum);
 			//map.get(gotten.getInt(6)).cancel(); /
-			/*current++;
+			current++;
 			if(current==max){
 				max++;
+				if(max>window){
+					max = window;
+				}
 				current = 0;
 				sendNextPacket(); // conjestion control
-			}*/
+			}
 			sendNextPacket();
 		}
 	}
@@ -202,14 +240,21 @@ public class RTP implements Runnable{
 		//System.out.println(3);
 		packet = new Packet(receiveData);
 		if(packet.checkData(receiveData, packet.checkSum, packet.length+20)){
-			if(packet.ack==1&&packet.mode==mode){
+			if(packet.mode==mode){
 				//System.out.println(4);
 				mood1 = true;
 				timeOut.cancel();
 				if(mode==0){
 					ftprec.setNumOfPackets(-1*packet.seqNum);
-					confimAck(seqNum);// sends back Ack 
-				}else{
+					Packet send = new Packet(null,myPort, port,packet.seqNum,(byte)0,(byte)0,(byte)1, mode, window);
+					System.out.println(send.ack);
+					toSend = send.getPacket();
+					System.out.println(toSend[12]);
+					sendPacket = new DatagramPacket(toSend, toSend.length, IPAddress, port);
+					clientSocket.send(sendPacket);
+					System.out.println("asdasd");
+					mood = true;
+				}else if(packet.ack==1){
 					mood = true;
 					//sendNextPacket();
 				}
@@ -249,6 +294,7 @@ public class RTP implements Runnable{
 		}
 		@Override
 		public void run() {
+			System.out.println("hello1");
 			timer.cancel();
 			try {
 				if (connection == false) connect();
@@ -266,6 +312,7 @@ public class RTP implements Runnable{
 		}
 		@Override
 		public void run() {
+			System.out.println("hello2");
 			timer.cancel();
 			try {
 				if (mood1 == false) setServerMode();
@@ -285,6 +332,7 @@ public class RTP implements Runnable{
 		}
 		@Override
 		public void run() {
+			System.out.println("hello3");
 			timer.cancel();
 			try {
 				confimAck(seqNum);
@@ -304,12 +352,16 @@ public class RTP implements Runnable{
 		}
 		@Override
 		public void run() {
+			System.out.println("hello4");
 			int seqNum = ftpsend.numToData.get(data);
 			timer.cancel();
 			map.remove(seqNum);
 			ftpsend.removeCurrent(seqNum);
-			//current = 0;
-			//max--;
+			current = 0;
+			max--;
+			if(max==0){
+				max = 1;
+			}
 			ftpsend.addPacket(seqNum);
 			//ncs.addToEnd(node);
 			if(map.size()==0){

@@ -1,0 +1,6 @@
+Simply compile all the java files in java 8 via javac.
+
+To run client please run java ClientDriver
+To run server please run java ServerDriver
+
+The rest of the commands are the same.

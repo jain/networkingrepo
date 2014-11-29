@@ -17,9 +17,9 @@ public class ClientDriver {
 	 */
 	public static void main(String[] args) throws IOException {
 		String filename = "";
-		for(String s: args){
+		/*for(String s: args){
 			System.out.println(s);
-		}
+		}*/
 		RTP rtp = new RTP(args[0], args[1], args[2]);
 		Scanner scan = new Scanner(System.in);
 		// ignores if get or post without connect or disconnect
@@ -59,13 +59,10 @@ public class ClientDriver {
 		Thread thread = new Thread(rtp);
 		thread.start();
 		String command = "";
-		/*while(!rtp.isComplete()){
-			if()
-		}*/
-		if(!rtp.isComplete()){
-			thread.interrupt();
-		}
-
+		Disconnect d = new Disconnect(thread, scan);
+		Thread thread1 = new Thread(d);
+		thread1.start();
+		rtp.t = thread1;
 	}
 
 }
